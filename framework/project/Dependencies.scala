@@ -9,8 +9,8 @@ import buildinfo.BuildInfo
 object Dependencies {
 
   val akkaVersion = "2.5.1"
-  val akkaHttpVersion = "10.0.6"
-  val playJsonVersion = "2.6.0-M7"
+  val akkaHttpVersion = "10.0.7"
+  val playJsonVersion = "2.6.0-RC1"
 
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
@@ -80,6 +80,11 @@ object Dependencies {
     // Used by the Java routing DSL
     "net.jodah" % "typetools" % "0.4.9"
   ) ++ specsBuild.map(_ % Test)
+
+  val joda = Seq(
+    "joda-time" % "joda-time" % "2.9.9",
+    "org.joda" % "joda-convert" % "1.8.1"
+  )
 
   val javaFormsDeps = Seq(
 
@@ -190,6 +195,7 @@ object Dependencies {
 
       sbtDep("com.typesafe.sbt" % "sbt-native-packager" % BuildInfo.sbtNativePackagerVersion),
 
+      sbtDep("com.lightbend.sbt" % "sbt-javaagent" % "0.1.2"),
       sbtDep("com.typesafe.sbt" % "sbt-web" % "1.4.0"),
       sbtDep("com.typesafe.sbt" % "sbt-js-engine" % "1.2.0")
     ) ++ specsBuild.map(_ % Test)
@@ -243,10 +249,19 @@ object Dependencies {
 
   val playCacheDeps = specsBuild.map(_ % Test)
 
-  val ehcacheVersion = "2.6.11"
-  val playEhcacheDeps = Seq("net.sf.ehcache" % "ehcache-core" % ehcacheVersion)
+  val jcacheApi = Seq(
+    "javax.cache" % "cache-api" % "1.0.0"
+  )
 
-  val playWsStandaloneVersion = "1.0.0-M6"
+  // Must use a version of ehcache that supports jcache 1.0.0
+  val ehcacheVersion = "2.10.4"
+  val playEhcacheDeps = Seq(
+    "net.sf.ehcache" % "ehcache" % ehcacheVersion,
+    "org.ehcache" % "jcache" % "1.0.1"
+  ) ++ jcacheApi
+
+  val caffeineVersion = "2.5.0"
+  val playWsStandaloneVersion = "1.0.0-RC1"
   val playWsDeps = Seq(
     "com.typesafe.play" %% "play-ws-standalone" % playWsStandaloneVersion
   ) ++
@@ -254,8 +269,11 @@ object Dependencies {
     mockitoAll % Test
 
   val playAhcWsDeps = Seq(
-    "com.typesafe.play" %% "play-ahc-ws-standalone" % playWsStandaloneVersion
-  )
+    "com.typesafe.play" %% "play-ahc-ws-standalone" % playWsStandaloneVersion,
+    "com.typesafe.play" % "shaded-asynchttpclient" % playWsStandaloneVersion,
+    "com.typesafe.play" % "shaded-oauth" % playWsStandaloneVersion,
+    "com.github.ben-manes.caffeine" % "jcache" % caffeineVersion % Test
+  ) ++ jcacheApi
 
   val playDocsSbtPluginDependencies = Seq(
     "com.typesafe.play" %% "play-doc" % playDocVersion

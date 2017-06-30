@@ -22,6 +22,7 @@ import play.mvc.Http.HeaderNames
 
 import scala.collection.immutable
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
 /**
  * Conversions between Akka's and Play's HTTP model objects.
@@ -99,9 +100,28 @@ private[server] class AkkaModelConversion(
       request.method.name,
       new RequestTarget {
         override lazy val uri: URI = new URI(headers.uri)
+
         override def uriString: String = headers.uri
-        override lazy val path: String = request.uri.path.toString
-        override lazy val queryMap: Map[String, Seq[String]] = request.uri.query().toMultiMap
+
+        override lazy val path: String = {
+          try {
+            request.uri.path.toString
+          } catch {
+            case NonFatal(e) =>
+              logger.warn("Failed to parse path; returning empty string.", e)
+              ""
+          }
+        }
+
+        override lazy val queryMap: Map[String, Seq[String]] = {
+          try {
+            request.uri.query().toMultiMap
+          } catch {
+            case NonFatal(e) =>
+              logger.warn("Failed to parse query string; returning empty map.", e)
+              Map[String, Seq[String]]()
+          }
+        }
       },
       request.protocol.value,
       headers,
@@ -208,13 +228,10 @@ private[server] class AkkaModelConversion(
   }
 
   def parseContentType(contentType: Option[String]): ContentType = {
-    // actually play allows content types to be not spec compliant
-    // so we can't rely on the parsed content type of akka
     contentType.fold(ContentTypes.NoContentType: ContentType) { ct =>
-      MediaType.custom(ct, binary = true) match {
-        case b: MediaType.Binary => ContentType(b)
-        case _ => ContentTypes.NoContentType
-      }
+      ContentType.parse(ct).left.map { errors =>
+        throw new RuntimeException(s"Error parsing response Content-Type: <$ct>: $errors")
+      }.merge
     }
   }
 

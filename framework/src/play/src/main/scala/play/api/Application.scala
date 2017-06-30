@@ -275,7 +275,8 @@ trait BuiltInComponents extends I18nComponents {
       langs // play.api.i18n.Langs object
   }
 
-  lazy val playBodyParsers: PlayBodyParsers = PlayBodyParsers(httpConfiguration.parser, httpErrorHandler, materializer, tempFileCreator)
+  lazy val playBodyParsers: PlayBodyParsers =
+    PlayBodyParsers(tempFileCreator, httpErrorHandler, httpConfiguration.parser)(materializer)
   lazy val defaultBodyParser: BodyParser[AnyContent] = playBodyParsers.default
   lazy val defaultActionBuilder: DefaultActionBuilder = DefaultActionBuilder(defaultBodyParser)
 
@@ -339,6 +340,8 @@ trait BuiltInComponents extends I18nComponents {
 
 /**
  * A component to mix in when no default filters should be mixed in to BuiltInComponents.
+ *
+ * @see [[BuiltInComponents.httpFilters]]
  */
 trait NoHttpFiltersComponents {
   val httpFilters: Seq[EssentialFilter] = Nil

@@ -47,7 +47,7 @@ class CompileTimeDependencyInjectionFormSpec extends FormSpec {
       with FormFactoryComponents {
     override def router(): Router = Router.empty()
 
-    override def httpFilters(): Array[EssentialFilter] = Array.empty
+    override def httpFilters(): java.util.List[EssentialFilter] = java.util.Collections.emptyList()
 
     override def config(): Config = {
       val javaExtraConfig = extraConfig.mapValues {
@@ -644,6 +644,11 @@ trait FormSpec extends Specification {
         myForm.errors().size() must beEqualTo(0)
         myForm.errors("name").size() must beEqualTo(0)
       }
+    }
+
+    "not process it's legacy validate method when the Validatable interface is implemented" in {
+      val myForm = formFactory.form(classOf[LegacyUser]).bind(Map("foo" -> "foo").asJava)
+      myForm.globalErrors().size() must beEqualTo(0)
     }
 
     "keep the declared order of constraint annotations" in {

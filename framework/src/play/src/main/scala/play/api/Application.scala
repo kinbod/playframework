@@ -19,7 +19,7 @@ import play.api.libs.crypto._
 import play.api.mvc._
 import play.api.mvc.request.{ DefaultRequestFactory, RequestFactory }
 import play.api.routing.Router
-import play.core.j.JavaHelpers
+import play.core.j.{ JavaContextComponents, JavaHelpers }
 import play.core.{ SourceMapper, WebCommands }
 import play.utils._
 
@@ -258,7 +258,7 @@ trait BuiltInComponents extends I18nComponents {
   def sourceMapper: Option[SourceMapper]
   def webCommands: WebCommands
   def configuration: Configuration
-  def applicationLifecycle: DefaultApplicationLifecycle
+  def applicationLifecycle: ApplicationLifecycle
 
   def router: Router
 
@@ -267,12 +267,13 @@ trait BuiltInComponents extends I18nComponents {
    * existing (deprecated) legacy APIs to function. It is not set up to support injecting arbitrary Play components.
    */
   lazy val injector: Injector = {
-    new SimpleInjector(NewInstanceInjector) +
+    val simple = new SimpleInjector(NewInstanceInjector) +
       cookieSigner + // play.api.libs.Crypto (for cookies)
       httpConfiguration + // play.api.mvc.BodyParsers trait
       tempFileCreator + // play.api.libs.TemporaryFileCreator object
       messagesApi + // play.api.i18n.Messages object
       langs // play.api.i18n.Langs object
+    new ContextClassLoaderInjector(simple, environment.classLoader)
   }
 
   lazy val playBodyParsers: PlayBodyParsers =
@@ -335,7 +336,7 @@ trait BuiltInComponents extends I18nComponents {
 
   lazy val fileMimeTypes: FileMimeTypes = new DefaultFileMimeTypesProvider(httpConfiguration.fileMimeTypes).get
 
-  lazy val javaContextComponents = JavaHelpers.createContextComponents(messagesApi, langs, fileMimeTypes, httpConfiguration)
+  lazy val javaContextComponents: JavaContextComponents = JavaHelpers.createContextComponents(messagesApi, langs, fileMimeTypes, httpConfiguration)
 }
 
 /**

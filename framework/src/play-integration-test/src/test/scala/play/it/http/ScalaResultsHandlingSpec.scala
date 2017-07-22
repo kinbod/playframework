@@ -3,7 +3,7 @@
  */
 package play.it.http
 
-import java.nio.file.{ Files => JFiles }
+import java.nio.file.{ Path, Files => JFiles }
 import java.util.Locale.ENGLISH
 
 import akka.stream.scaladsl.Source
@@ -99,7 +99,7 @@ trait ScalaResultsHandlingSpec extends PlaySpecification with WsTestClient with 
         response.body must_== "abcdefghi"
       }
 
-    "support reponses with custom Content-Types" in {
+    "support responses with custom Content-Types" in {
       makeRequest(
         Results.Ok.sendEntity(HttpEntity.Strict(ByteString(0xff.toByte), Some("schmitch/foo; bar=bax")))
       ) { response =>
@@ -343,18 +343,45 @@ trait ScalaResultsHandlingSpec extends PlaySpecification with WsTestClient with 
       }
     }
 
+    "support UTF-8 encoded filenames in Content-Disposition headers" in {
+      val tempFile: Path = JFiles.createTempFile("ScalaResultsHandlingSpec", "txt")
+      try {
+        withServer {
+          import scala.concurrent.ExecutionContext.Implicits.global
+          implicit val mimeTypes: FileMimeTypes = new DefaultFileMimeTypes(FileMimeTypesConfiguration())
+          Results.Ok.sendFile(
+            tempFile.toFile,
+            fileName = _ => "测 试.tmp"
+          )
+        } { port =>
+          val response = BasicHttpClient.makeRequests(port)(
+            BasicRequest("GET", "/", "HTTP/1.1", Map(), "")
+          ).head
+
+          response.status must_== 200
+          response.body must beLeft("")
+          response.headers.get(CONTENT_DISPOSITION) must beSome(s"""inline; filename="? ?.tmp"; filename*=utf-8''%e6%b5%8b%20%e8%af%95.tmp""")
+        }
+      } finally {
+        tempFile.toFile.delete()
+      }
+    }
+
     "split Set-Cookie headers" in {
       import play.api.mvc.Cookie
+
+      lazy val cookieHeaderEncoding = new DefaultCookieHeaderEncoding()
+
       val aCookie = Cookie("a", "1")
       val bCookie = Cookie("b", "2")
       val cCookie = Cookie("c", "3")
       makeRequest {
         Results.Ok.withCookies(aCookie, bCookie, cCookie)
       } { response =>
-        response.allHeaders.get(SET_COOKIE) must beSome.like {
+        response.headers.get(SET_COOKIE) must beSome.like {
           case rawCookieHeaders =>
             val decodedCookieHeaders: Set[Set[Cookie]] = rawCookieHeaders.map { headerValue =>
-              Cookies.decodeSetCookieHeader(headerValue).to[Set]
+              cookieHeaderEncoding.decodeSetCookieHeader(headerValue).to[Set]
             }.to[Set]
             decodedCookieHeaders must_== (Set(Set(aCookie), Set(bCookie), Set(cCookie)))
         }

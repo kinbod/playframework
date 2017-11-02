@@ -20,8 +20,6 @@ import play.mvc.Http.{ Context => JContext }
 
 import scala.concurrent.{ ExecutionContext, Future }
 
-import java.util.function.{ Supplier => JSupplier }
-
 /**
  * Retains and evaluates what is otherwise expensive reflection work on call by call basis.
  *
@@ -87,6 +85,7 @@ abstract class JavaAction(val handlerComponents: JavaHandlerComponents)
     val endOfChainAction = if (config.executeActionCreatorActionFirst) {
       rootAction
     } else {
+      rootAction.precursor = baseAction
       baseAction.delegate = rootAction
       baseAction
     }
@@ -95,11 +94,13 @@ abstract class JavaAction(val handlerComponents: JavaHandlerComponents)
       case (delegate, (annotation, actionClass)) =>
         val action = handlerComponents.getAction(actionClass).asInstanceOf[play.mvc.Action[Object]]
         action.configuration = annotation
+        delegate.precursor = action
         action.delegate = delegate
         action
     }
 
     val finalAction = if (config.executeActionCreatorActionFirst) {
+      finalUserDeclaredAction.precursor = baseAction
       baseAction.delegate = finalUserDeclaredAction
       baseAction
     } else {

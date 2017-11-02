@@ -180,7 +180,8 @@ case class Configuration(underlying: Config) {
   }
 
   /**
-   * Merge two configurations.
+   * Merge two configurations. The second configuration overrides the first configuration.
+   * This is the opposite direction of `Config`'s `withFallback` method.
    */
   def ++(other: Configuration): Configuration = {
     Configuration(other.underlying.withFallback(underlying))
@@ -1033,7 +1034,9 @@ object ConfigLoader {
     ConfigLoader(_.getBooleanList).map(_.asScala.map(_.booleanValue))
 
   implicit val durationLoader: ConfigLoader[Duration] = ConfigLoader { config => path =>
-    if (!config.getIsNull(path)) config.getDuration(path).toNanos.nanos else Duration.Inf
+    if (config.getIsNull(path)) Duration.Inf
+    else if (config.getString(path) == "infinite") Duration.Inf
+    else config.getDuration(path).toNanos.nanos
   }
 
   // Note: this does not support null values but it added for convenience
@@ -1086,9 +1089,10 @@ object ConfigLoader {
     def load(config: Config, path: String): Map[String, A] = {
       val obj = config.getObject(path)
       val conf = obj.toConfig
+
       obj.keySet().asScala.map { key =>
         key -> valueLoader.load(conf, key)
-      }.toMap
+      }(scala.collection.breakOut)
     }
   }
 }

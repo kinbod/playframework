@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 
 import com.typesafe.config._
 import com.typesafe.config.impl.ConfigImpl
+import play.twirl.api.utils.StringEscapeUtils
 import play.utils.PlayIO
 
 import scala.collection.JavaConverters._
@@ -230,7 +231,11 @@ case class Configuration(underlying: Config) {
    * usage. Instead you should define all config keys in a reference.conf file.
    */
   def getOptional[A](path: String)(implicit loader: ConfigLoader[A]): Option[A] = {
-    readValue(path, get[A](path))
+    try {
+      if (underlying.hasPath(path)) Some(get[A](path)) else None
+    } catch {
+      case NonFatal(e) => throw reportError(path, e.getMessage, Some(e))
+    }
   }
 
   /**
@@ -1091,7 +1096,9 @@ object ConfigLoader {
       val conf = obj.toConfig
 
       obj.keySet().asScala.map { key =>
-        key -> valueLoader.load(conf, key)
+        // quote and escape the key in case it contains dots or special characters
+        val path = "\"" + StringEscapeUtils.escapeEcmaScript(key) + "\""
+        key -> valueLoader.load(conf, path)
       }(scala.collection.breakOut)
     }
   }

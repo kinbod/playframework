@@ -18,9 +18,9 @@ import play.api.routing.Router
 class FormActionSpec extends PlaySpecification with WsTestClient {
 
   case class User(
-    name: String,
-    email: String,
-    age: Int
+      name: String,
+      email: String,
+      age: Int
   )
 
   val userForm = Form(
@@ -32,7 +32,7 @@ class FormActionSpec extends PlaySpecification with WsTestClient {
   )
 
   def application: Application = {
-    val context = ApplicationLoader.createContext(Environment.simple())
+    val context = ApplicationLoader.Context.create(Environment.simple())
     new BuiltInComponentsFromContext(context) with NoHttpFiltersComponents {
 
       import play.api.routing.sird.{ POST => SirdPost, _ }

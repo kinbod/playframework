@@ -19,15 +19,15 @@ import scala.runtime.AbstractPartialFunction
  * A builder for creating Applications using Guice.
  */
 final case class GuiceApplicationBuilder(
-  environment: Environment = Environment.simple(),
-  configuration: Configuration = Configuration.empty,
-  modules: Seq[GuiceableModule] = Seq.empty,
-  overrides: Seq[GuiceableModule] = Seq.empty,
-  disabled: Seq[Class[_]] = Seq.empty,
-  binderOptions: Set[BinderOption] = BinderOption.defaults,
-  eagerly: Boolean = false,
-  loadConfiguration: Environment => Configuration = Configuration.load,
-  loadModules: (Environment, Configuration) => Seq[GuiceableModule] = GuiceableModule.loadModules) extends GuiceBuilder[GuiceApplicationBuilder](
+    environment: Environment = Environment.simple(),
+    configuration: Configuration = Configuration.empty,
+    modules: Seq[GuiceableModule] = Seq.empty,
+    overrides: Seq[GuiceableModule] = Seq.empty,
+    disabled: Seq[Class[_]] = Seq.empty,
+    binderOptions: Set[BinderOption] = BinderOption.defaults,
+    eagerly: Boolean = false,
+    loadConfiguration: Environment => Configuration = Configuration.load,
+    loadModules: (Environment, Configuration) => Seq[GuiceableModule] = GuiceableModule.loadModules) extends GuiceBuilder[GuiceApplicationBuilder](
   environment, configuration, modules, overrides, disabled, binderOptions, eagerly
 ) {
 
@@ -105,7 +105,8 @@ final case class GuiceApplicationBuilder(
       .bindings(loadedModules: _*)
       .bindings(
         bind[ILoggerFactory] to loggerFactory,
-        bind[OptionalSourceMapper] to new OptionalSourceMapper(None),
+        bind[OptionalDevContext] to new OptionalDevContext(None),
+        bind[OptionalSourceMapper].toProvider[OptionalSourceMapperProvider],
         bind[WebCommands] to new DefaultWebCommands
       ).createModule()
   }

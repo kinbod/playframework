@@ -3,18 +3,15 @@
  */
 import sbt.ScriptedPlugin._
 import sbt._
-import Keys.{version, _}
-
+import Keys.{ version, _ }
 import com.typesafe.tools.mima.core._
 import com.typesafe.tools.mima.plugin.MimaKeys._
 import com.typesafe.tools.mima.plugin.MimaPlugin._
-
 import de.heikoseeberger.sbtheader.HeaderKey._
-import de.heikoseeberger.sbtheader.HeaderPattern
+import de.heikoseeberger.sbtheader.{ AutomateHeaderPlugin, HeaderPattern }
 
 import scalariform.formatter.preferences._
-import com.typesafe.sbt.SbtScalariform.scalariformSettings
-import com.typesafe.sbt.SbtScalariform.ScalariformKeys
+import com.typesafe.sbt.SbtScalariform.autoImport._
 import bintray.BintrayPlugin.autoImport._
 import interplay._
 import interplay.Omnidoc.autoImport._
@@ -74,13 +71,14 @@ object BuildSettings {
    */
   def playCommonSettings: Seq[Setting[_]] = {
 
-    scalariformSettings ++ fileHeaderSettings ++ Seq(
-      ScalariformKeys.preferences := ScalariformKeys.preferences.value
+    fileHeaderSettings ++ Seq(
+      scalariformAutoformat := true,
+      scalariformPreferences := scalariformPreferences.value
           .setPreference(SpacesAroundMultiImports, true)
           .setPreference(SpaceInsideParentheses, false)
           .setPreference(DanglingCloseParenthesis, Preserve)
           .setPreference(PreserveSpaceBeforeArguments, true)
-          .setPreference(DoubleIndentClassDeclaration, true)
+          .setPreference(DoubleIndentConstructorArguments, true)
     ) ++ Seq(
       homepage := Some(url("https://playframework.com")),
       ivyLoggingLevel := UpdateLogging.DownloadOnly,
@@ -227,7 +225,31 @@ object BuildSettings {
       ProblemFilters.exclude[ReversedMissingMethodProblem]("play.api.cache.ehcache.EhCacheComponents.actorSystem"),
 
       // Changed this private[play] type to a Lock to allow explicit locking
-      ProblemFilters.exclude[IncompatibleResultTypeProblem]("play.api.test.PlayRunners.mutex")
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("play.api.test.PlayRunners.mutex"),
+
+      // Deprecate ApplicationProvider.handleWebCommands and pass BuildLink through ApplicationLoader.Context
+      ProblemFilters.exclude[FinalClassProblem]("play.api.OptionalSourceMapper"),
+      ProblemFilters.exclude[MissingTypesProblem]("play.api.ApplicationLoader$Context$"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.api.ApplicationLoader#Context.copy"),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("play.api.ApplicationLoader#Context.copy$default$4"),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("play.api.ApplicationLoader#Context.copy$default$3"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.api.ApplicationLoader#Context.this"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.AkkaHttpServerComponents.sourceMapper"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.AkkaHttpServerComponents.webCommands"),
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("play.api.BuiltInComponents.play$api$BuiltInComponents$$defaultWebCommands"),
+      ProblemFilters.exclude[ReversedMissingMethodProblem]("play.api.BuiltInComponents.play$api$BuiltInComponents$_setter_$play$api$BuiltInComponents$$defaultWebCommands_="),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("play.api.ApplicationLoader#Context.copy$default$2"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.api.ApplicationLoader#Context.copy$default$5"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.NettyServerComponents.sourceMapper"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.NettyServerComponents.webCommands"),
+
+      // Pass a default server header to netty
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.netty.NettyModelConversion.this"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.core.server.netty.PlayRequestHandler.this"),
+
+      // Made InlineCache.cache private and changed the type (class is private[play])
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.utils.InlineCache.cache"),
+      ProblemFilters.exclude[DirectMissingMethodProblem]("play.utils.InlineCache.cache_=")
     ),
     unmanagedSourceDirectories in Compile += {
       (sourceDirectory in Compile).value / s"scala-${scalaBinaryVersion.value}"
@@ -246,7 +268,7 @@ object BuildSettings {
    */
   def PlayNonCrossBuiltProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
-        .enablePlugins(PlaySbtLibrary)
+        .enablePlugins(PlaySbtLibrary, AutomateHeaderPlugin)
         .settings(playRuntimeSettings: _*)
         .settings(omnidocSettings: _*)
         .settings(
@@ -260,7 +282,7 @@ object BuildSettings {
    */
   def PlayDevelopmentProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
-        .enablePlugins(PlayLibrary)
+        .enablePlugins(PlayLibrary, AutomateHeaderPlugin)
         .settings(playCommonSettings: _*)
         .settings(
           (javacOptions in compile) ~= (_.map {
@@ -275,9 +297,13 @@ object BuildSettings {
    */
   def PlayCrossBuiltProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
-        .enablePlugins(PlayLibrary)
+        .enablePlugins(PlayLibrary, AutomateHeaderPlugin)
         .settings(playRuntimeSettings: _*)
         .settings(omnidocSettings: _*)
+        .settings(
+          // Need to add this after updating to Scala 2.11.12
+          scalacOptions += "-target:jvm-1.8"
+        )
   }
 
   def omnidocSettings: Seq[Setting[_]] = Omnidoc.projectSettings ++ Seq(
@@ -303,7 +329,7 @@ object BuildSettings {
    */
   def PlaySbtProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
-        .enablePlugins(PlaySbtLibrary)
+        .enablePlugins(PlaySbtLibrary, AutomateHeaderPlugin)
         .settings(playCommonSettings: _*)
   }
 
@@ -312,7 +338,7 @@ object BuildSettings {
    */
   def PlaySbtPluginProject(name: String, dir: String): Project = {
     Project(name, file("src/" + dir))
-        .enablePlugins(PlaySbtPlugin)
+        .enablePlugins(PlaySbtPlugin, AutomateHeaderPlugin)
         .settings(playCommonSettings: _*)
         .settings(playScriptedSettings: _*)
         .settings(

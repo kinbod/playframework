@@ -318,7 +318,7 @@ object QueryStringBindable {
    * @tparam A the type being parsed
    */
   class Parsing[A](parse: String => A, serialize: A => String, error: (String, Exception) => String)
-      extends QueryStringBindable[A] {
+    extends QueryStringBindable[A] {
 
     def bind(key: String, params: Map[String, Seq[String]]) = params.get(key).flatMap(_.headOption).map { p =>
       try {
@@ -558,6 +558,9 @@ object QueryStringBindable {
  */
 object PathBindable {
 
+  import play.api.mvc.macros.BinderMacros
+  import scala.language.experimental.macros
+
   /**
    * A helper class for creating PathBindables to map the value of a path pattern/segment
    *
@@ -567,7 +570,7 @@ object PathBindable {
    * @tparam A the type being parsed
    */
   class Parsing[A](parse: String => A, serialize: A => String, error: (String, Exception) => String)
-      extends PathBindable[A] {
+    extends PathBindable[A] {
 
     // added for bincompat
     @deprecated("Use constructor without codec", "2.6.2")
@@ -671,6 +674,11 @@ object PathBindable {
   ) {
     override def javascriptUnbind = """function(k,v){return !!v}"""
   }
+
+  /**
+   * Path binder for AnyVal
+   */
+  implicit def anyValPathBindable[T <: AnyVal]: PathBindable[T] = macro BinderMacros.anyValPathBindable[T]
 
   /**
    * Path binder for Java Boolean.
